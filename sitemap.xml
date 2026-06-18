@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<urlset
+    xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+    xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+    <url>
+        <loc>
+            https://akshat-881236.github.io/HorizonTechX_Gallery/
+        </loc>
+
+        <lastmod>2026-06-18</lastmod>
+
+        <changefreq>weekly</changefreq>
+
+        <priority>1.0</priority>
+    </url>
+
+    <url>
+        <loc>
+            https://akshat-881236.github.io/HorizonTechX_Gallery/404.html
+        </loc>
+
+        <changefreq>yearly</changefreq>
+
+        <priority>0.1</priority>
+    </url>
+
+    <url>
+        <loc>
+            https://akshat-881236.github.io/HorizonTechX_Gallery/robots.txt
+        </loc>
+
+        <changefreq>monthly</changefreq>
+
+        <priority>0.2</priority>
+    </url>
+
+    <url>
+        <loc>
+            https://akshat-881236.github.io/HorizonTechX_Gallery/README.md
+        </loc>
+
+        <changefreq>monthly</changefreq>
+
+        <priority>0.2</priority>
+    </url>
+
+</urlset>
