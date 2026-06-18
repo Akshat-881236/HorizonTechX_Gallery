@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="description" content="Horizon_Tech Gallery - Professional Gallery Web App">
+    <meta name="keywords" content="gallery, photos, image manager, PWA, web app">
+    <meta name="author" content="Horizon_Tech">
+    <meta name="robots" content="index, follow">
+    <link rel="icon" href="logo.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="logo.svg" sizes="180x180">
+    <link rel="shortcut icon" href="logo.svg" type="image/svg+xml">
+    <link rel="manifest" href="manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Horizon Gallery">
+    <title>Horizon_Tech Gallery</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script class="service-worker-loader">
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker
+                    .register("service-worker.js")
+                    .then(reg => {
+                        console.log("Service Worker Registered", reg);
+                    })
+                    .catch(err => {
+                        console.error("Service Worker Error:", err);
+                    });
+            });
+        }
+    </script>
+   <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+
+  "name": "Horizon_Tech Gallery",
+
+  "description": "Professional Gallery Web App",
+
+  "url": "https://akshat-881236.github.io/HorizonTechX_Gallery/",
+
+  "applicationCategory": "PhotoApplication",
+
+  "operatingSystem": "Web Browser",
+
+  "image": "https://akshat-881236.github.io/HorizonTechX_Gallery/logo.svg",
+
+  "author": {
+    "@type": "Person",
+    "name": "Akshat Prasad",
+    "url": "https://akshat-145609.github.io/MyPortfolioSite/"
+  },
+
+  "publisher": {
+    "@type": "Organization",
+    "name": "Akshat Network Hub",
+    "url": "https://akshat-881236.github.io/AkshatNetworkHub/",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://akshat-881236.github.io/TrackerJS/Assets/AKNH/icon-192.png"
+    }
+  },
+
+  "sameAs": [
+    "https://www.linkedin.com/in/akshat-prasad-anh",
+    "https://medium.com/@its.akshatnetworkhub23",
+    "https://www.instagram.com/its_akshat_881236/",
+    "https://github.com/Akshat-881236"
+  ]
+}
+</script>
+<meta property="og:title" content="Horizon_Tech Gallery">
+<meta property="og:description" content="Professional Gallery Web App">
+<meta property="og:url" content="https://akshat-881236.github.io/HorizonTechX_Gallery/">
+<meta property="og:image" content="https://akshat-881236.github.io/HorizonTechX_Gallery/logo.svg">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Horizon_Tech Gallery">
+<meta name="twitter:description" content="Professional Gallery Web App">
+<meta name="twitter:image" content="https://akshat-881236.github.io/HorizonTechX_Gallery/logo.svg">
+<meta http-equiv="Content-Security-Policy" content="frame-ancestors 'self';">
+   <link rel="me" href="https://www.linkedin.com/in/akshat-prasad-anh">
+   <link rel="me" href="https://medium.com/@its.akshatnetworkhub23">
+   <link rel="me" href="https://www.instagram.com/its_akshat_881236/">
+   <link rel="me" href="https://github.com/Akshat-881236">
+   <link rel="canonical" href="https://akshat-881236.github.io/HorizonTechX_Gallery/">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="dark" data-contrast="normal">
+    <div id="app-splash">
+    <img src="logo.svg" alt="Horizon Gallery Logo">
+    <h1>Horizon Gallery</h1>
+    </div>
+    <!-- App Container -->
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header" id="sidebarToggle">
+                <div class="sidebar-logo">HT</div>
+                <div class="sidebar-title">Gallery</div>
+            </div>
+
+            <!-- Library Section -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Library</div>
+                <div class="sidebar-item active" data-folder="all">
+                    <i class="fas fa-images"></i>
+                    <span>All Photos</span>
+                    <span class="badge" id="totalBadge">0</span>
+                </div>
+                <div class="sidebar-item" data-folder="recent">
+                    <i class="fas fa-clock"></i>
+                    <span>Recent</span>
+                </div>
+            </div>
+
+            <!-- Smart Folders Section -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">
+                    <span>Smart Folders</span>
+                    <button style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 12px; margin-left: auto; padding: 0;" id="addFolderBtn" title="Add Folder">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <div class="sidebar-item" data-folder="favorites">
+                    <i class="fas fa-heart"></i>
+                    <span>Favorites</span>
+                    <span class="badge" id="favoritesBadge">0</span>
+                </div>
+                <div class="sidebar-item" data-folder="starred">
+                    <i class="fas fa-star"></i>
+                    <span>Starred</span>
+                    <span class="badge" id="starredBadge">0</span>
+                </div>
+            </div>
+
+            <!-- Custom Folders Section -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Folders</div>
+                <div id="folderTree"></div>
+            </div>
+
+            <!-- Other Section -->
+            <div class="sidebar-section" style="margin-top: auto;">
+                <div class="sidebar-item" data-folder="trash">
+                    <i class="fas fa-trash"></i>
+                    <span>Trash</span>
+                    <span class="badge" id="trashBadge">0</span>
+                </div>
+                <div class="sidebar-item" id="settingsBtn">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="header">
+                <button class="header-btn" id="menuBtn" title="Toggle Sidebar">
+                    <i class="fas fa-bars"></i>
+                </button>
+
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search photos or folders...">
+                </div>
+
+                <button class="header-btn" id="uploadBtn" title="Upload Photos">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </button>
+
+                <button class="header-btn" id="viewModeBtn" title="Change View">
+                    <i class="fas fa-th"></i>
+                </button>
+            </div>
+
+            <!-- Gallery Content -->
+            <div class="gallery-content" id="galleryContent">
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-image"></i>
+                    </div>
+                    <div class="empty-state-title">No photos yet</div>
+                    <div class="empty-state-text">Upload your first photo to get started</div>
+                    <button class="btn-primary-custom" id="uploadBtnEmpty">
+                        <i class="fas fa-cloud-upload-alt"></i> Upload Photos
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightbox Viewer -->
+    <div class="lightbox-backdrop" id="lightboxBackdrop">
+        <div class="lightbox-container">
+            <button class="lightbox-nav prev" id="lightboxPrev" title="Previous (←)">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+
+            <div class="lightbox-image-container">
+                <img class="lightbox-image" id="lightboxImage" src="" alt="">
+                <div class="lightbox-info">
+                    <div class="lightbox-info-left">
+                        <div>
+                            <i class="fas fa-image" style="font-size: 24px; color: var(--accent);"></i>
+                        </div>
+                        <div class="lightbox-info-text">
+                            <div class="lightbox-info-name" id="lightboxName"></div>
+                            <div class="lightbox-info-details" id="lightboxDetails"></div>
+                        </div>
+                    </div>
+                    <div class="lightbox-info-details" id="lightboxIndex"></div>
+                </div>
+            </div>
+
+            <button class="lightbox-nav next" id="lightboxNext" title="Next (→)">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+
+            <button class="lightbox-close" id="lightboxClose" title="Close (ESC)">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <div class="lightbox-controls">
+                <button class="lightbox-btn" id="lightboxZoomOut" data-action="zoom" title="Zoom Out (-)">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button class="lightbox-btn" id="lightboxZoomIn" data-action="zoom" title="Zoom In (+)">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button class="lightbox-btn" id="lightboxRotateLeft" data-action="rotate" title="Rotate Left">
+                    <i class="fas fa-redo"></i>
+                </button>
+                <button class="lightbox-btn" id="lightboxRotateRight" data-action="rotate" title="Rotate Right">
+                    <i class="fas fa-undo"></i>
+                </button>
+                <button class="lightbox-btn" id="lightboxFavorite" data-action="favorite" title="Add to Favorite">
+                    <i class="fas fa-heart"></i>
+                </button>
+                <button class="lightbox-btn" id="lightboxStar" data-action="star" title="Add to Starred">
+                    <i class="fas fa-star"></i>
+                </button>
+                <button class="lightbox-btn" id="lightboxDetails" data-action="details" title="View Details">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+                <button class="lightbox-btn" id="lightboxShare" data-action="share" title="Share">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+                <button class="lightbox-btn" id="lightboxDownload" data-action="download" title="Download">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button class="lightbox-btn" id="lightboxDelete" data-action="delete" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal-custom" id="uploadModal">
+        <div class="modal-content-custom">
+            <div class="modal-header-custom">
+                <div class="modal-title-custom"><i class="fas fa-cloud-upload-alt"></i> Upload Photos</div>
+                <button class="modal-close-btn" onclick="closeModal('uploadModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-zone-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <div style="font-weight: 600; margin-bottom: 5px; color: var(--text-primary);">Drag photos here</div>
+                <div style="color: var(--text-secondary); font-size: 13px;">or click to select files</div>
+                <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+            </div>
+
+            <div id="uploadProgress" style="margin-top: 20px;"></div>
+
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button class="btn-secondary-custom" onclick="closeModal('uploadModal')" style="flex: 1;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Details Modal -->
+    <div class="modal-custom" id="detailsModal">
+        <div class="modal-content-custom">
+            <div class="modal-header-custom">
+                <div class="modal-title-custom"><i class="fas fa-info-circle"></i> Image Details</div>
+                <button class="modal-close-btn" onclick="closeModal('detailsModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div id="detailsContent" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"></div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-custom" id="settingsModal">
+        <div class="modal-content-custom">
+            <div class="modal-header-custom">
+                <div class="modal-title-custom"><i class="fas fa-cog"></i> Settings</div>
+                <button class="modal-close-btn" onclick="closeModal('settingsModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="settings-grid">
+                <!-- Theme Settings -->
+                <div class="settings-section">
+                    <div class="settings-title">
+                        <i class="fas fa-moon"></i> Theme
+                    </div>
+                    <div class="settings-item">
+                        <span class="settings-label">Dark Mode</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="themeToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Color Contrast Settings -->
+                <div class="settings-section">
+                    <div class="settings-title">
+                        <i class="fas fa-palette"></i> Color Contrast
+                    </div>
+                    <div class="settings-item">
+                        <span class="settings-label">Contrast Level</span>
+                    </div>
+                    <div class="settings-item">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="contrast" value="normal" checked>
+                            <span>Normal</span>
+                        </label>
+                    </div>
+                    <div class="settings-item">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="contrast" value="high">
+                            <span>High Contrast</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Gallery View Settings -->
+                <div class="settings-section">
+                    <div class="settings-title">
+                        <i class="fas fa-th"></i> Gallery View
+                    </div>
+                    <div class="settings-item">
+                        <span class="settings-label">Default View</span>
+                    </div>
+                    <div class="settings-item">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="defaultView" value="grid" checked>
+                            <span>Grid</span>
+                        </label>
+                    </div>
+                    <div class="settings-item">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="radio" name="defaultView" value="list">
+                            <span>List</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Database Actions -->
+                <div class="settings-section">
+                    <div class="settings-title">
+                        <i class="fas fa-database"></i> Data Management
+                    </div>
+                    <div class="settings-item">
+                        <button class="btn-secondary-custom" id="exportDataBtn" style="width: 100%; margin: 5px 0;">
+                            <i class="fas fa-download"></i> Export All Data
+                        </button>
+                    </div>
+                    <div class="settings-item">
+                        <button class="btn-secondary-custom" id="clearCacheBtn" style="width: 100%; margin: 5px 0;">
+                            <i class="fas fa-trash"></i> Clear Cache
+                        </button>
+                    </div>
+                    <div class="settings-item">
+                        <button class="btn-secondary-custom" id="installBtn" style="width: 100%; margin: 5px 0;">
+                            <i class="fas fa-download"></i> Install App
+                        </button>
+                    </div>
+                </div>
+
+                <!-- About -->
+                <div class="settings-section">
+                    <div class="settings-title">
+                        <i class="fas fa-info-circle"></i> About
+                    </div>
+                    <div style="font-size: 13px; color: var(--text-secondary);">
+                        <p><strong>Horizon_Tech Gallery</strong></p>
+                        <p>Version 1.0.0</p>
+                        <p>Professional Gallery Web Application</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal-custom" id="confirmModal">
+        <div class="modal-content-custom" style="max-width: 400px;">
+            <div class="modal-header-custom">
+                <div class="modal-title-custom" id="confirmTitle"></div>
+                <button class="modal-close-btn" onclick="closeModal('confirmModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div id="confirmMessage" style="margin-bottom: 20px; color: var(--text-secondary);"></div>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-secondary-custom" onclick="closeModal('confirmModal')" style="flex: 1;">Cancel</button>
+                <button class="btn-danger-custom" id="confirmBtn" style="flex: 1;">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Hidden Inputs -->
+    <input type="file" id="hiddenFileInput" multiple accept="image/*" style="display: none;">
+
+    <!-- Main Application JavaScript -->
+    <script src="script.js"></script>
+    <script class="pwa-install-loader">
+        // Register service worker
+        document.addEventListener("DOMContentLoaded", () => {
+
+    const installBtn = document.getElementById("installBtn");
+
+    if (!installBtn) {
+        console.error("Install button not found");
+        return;
+    }
+
+    let deferredPrompt;
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+
+        e.preventDefault();
+
+        deferredPrompt = e;
+
+        installBtn.style.display = "block";
+    });
+
+    installBtn.addEventListener("click", async () => {
+
+        if (!deferredPrompt) return;
+
+        deferredPrompt.prompt();
+
+        await deferredPrompt.userChoice;
+    });
+
+});
+    </script>
+    <!-- <script src="iframe-blocker.js"></script> -->
+</body>
+</html>
