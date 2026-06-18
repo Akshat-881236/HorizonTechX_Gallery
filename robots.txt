@@ -1,0 +1,17 @@
+# Horizon_Tech Gallery
+# https://akshat-881236.github.io/HorizonTechX_Gallery/
+
+User-agent: *
+
+Allow: /
+
+# Prevent indexing of internal assets if desired
+Disallow: /assets/private/
+Disallow: /temp/
+Disallow: /cache/
+
+# Sitemap Location
+Sitemap: https://akshat-881236.github.io/HorizonTechX_Gallery/sitemap.xml
+
+# Crawl Delay (ignored by Google but used by some bots)
+Crawl-delay: 2
