@@ -3,8 +3,9 @@
         document.getElementById("app-splash")?.remove();
     }, 2000); // 2 seconds
 });
- // ============================================
-        // INDEXEDDB DATABASE MANAGEMENT
+
+// ============================================
+        // INDEXEDDB DATABASE
         // ============================================
         class GalleryDB {
             constructor() {
@@ -139,39 +140,21 @@
                 });
             }
 
-            async deleteFolder(id) {
-                const transaction = this.db.transaction(['folders'], 'readwrite');
-                const store = transaction.objectStore('folders');
-                return new Promise((resolve, reject) => {
-                    const request = store.delete(id);
-                    request.onerror = () => reject(request.error);
-                    request.onsuccess = () => resolve();
-                });
-            }
-
-            async renameFolder(id, newName) {
-                const folder = await this.getFolder(id);
-                if (folder) {
-                    folder.name = newName;
-                    return this.updateFolder(folder);
-                }
-            }
-
-            async getFolder(id) {
-                const transaction = this.db.transaction(['folders'], 'readonly');
-                const store = transaction.objectStore('folders');
-                return new Promise((resolve, reject) => {
-                    const request = store.get(id);
-                    request.onerror = () => reject(request.error);
-                    request.onsuccess = () => resolve(request.result);
-                });
-            }
-
             async updateFolder(folderData) {
                 const transaction = this.db.transaction(['folders'], 'readwrite');
                 const store = transaction.objectStore('folders');
                 return new Promise((resolve, reject) => {
                     const request = store.put(folderData);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => resolve();
+                });
+            }
+
+            async deleteFolder(id) {
+                const transaction = this.db.transaction(['folders'], 'readwrite');
+                const store = transaction.objectStore('folders');
+                return new Promise((resolve, reject) => {
+                    const request = store.delete(id);
                     request.onerror = () => reject(request.error);
                     request.onsuccess = () => resolve();
                 });
@@ -281,7 +264,7 @@
                 });
             }
 
-            async emptyTrash() {
+            async clearTrash() {
                 const transaction = this.db.transaction(['recycleBin'], 'readwrite');
                 const store = transaction.objectStore('recycleBin');
                 return new Promise((resolve, reject) => {
@@ -309,6 +292,19 @@
                     request.onerror = () => reject(request.error);
                     request.onsuccess = () => resolve(request.result?.value);
                 });
+            }
+
+            async clearAll() {
+                const stores = ['images', 'folders', 'favorites', 'starred', 'recycleBin'];
+                for (const store of stores) {
+                    const transaction = this.db.transaction([store], 'readwrite');
+                    const objectStore = transaction.objectStore(store);
+                    await new Promise((resolve, reject) => {
+                        const request = objectStore.clear();
+                        request.onerror = () => reject(request.error);
+                        request.onsuccess = () => resolve();
+                    });
+                }
             }
         }
 
@@ -338,21 +334,6 @@
                 });
             },
 
-            getRelativeTime(date) {
-                const now = new Date();
-                const diff = now - new Date(date);
-                const seconds = Math.floor(diff / 1000);
-                const minutes = Math.floor(seconds / 60);
-                const hours = Math.floor(minutes / 60);
-                const days = Math.floor(hours / 24);
-
-                if (seconds < 60) return 'Just now';
-                if (minutes < 60) return `${minutes}m ago`;
-                if (hours < 24) return `${hours}h ago`;
-                if (days < 7) return `${days}d ago`;
-                return Utils.formatDate(date);
-            },
-
             async fileToBase64(file) {
                 return new Promise((resolve, reject) => {
                     const reader = new FileReader();
@@ -368,7 +349,6 @@
                     img.onload = () => {
                         resolve({ width: img.width, height: img.height });
                     };
-                    img.onerror = () => resolve({ width: 0, height: 0 });
                     img.src = src;
                 });
             },
@@ -383,24 +363,19 @@
                     clearTimeout(timeout);
                     timeout = setTimeout(later, wait);
                 };
-            },
-
-            getLocationFromPath(path) {
-                const parts = path.split('/');
-                return parts[parts.length - 1] || 'Storage';
             }
         };
 
         // ============================================
-        // TOAST NOTIFICATION SYSTEM
+        // TOAST NOTIFICATION
         // ============================================
         class Toast {
             static show(message, type = 'info', duration = 3000) {
                 const container = document.getElementById('toastContainer');
                 const toast = document.createElement('div');
                 toast.className = `toast ${type}`;
-                
-                const icon = {
+
+                const icons = {
                     error: 'exclamation-circle',
                     success: 'check-circle',
                     warning: 'exclamation-triangle',
@@ -408,7 +383,7 @@
                 };
 
                 toast.innerHTML = `
-                    <i class="fas fa-${icon[type] || 'info-circle'}"></i>
+                    <i class="fas fa-${icons[type] || 'info-circle'}"></i>
                     <span>${message}</span>
                 `;
                 container.appendChild(toast);
@@ -421,18 +396,20 @@
         }
 
         // ============================================
-        // MAIN APPLICATION CLASS
+        // MAIN APPLICATION
         // ============================================
         class HorizonGallery {
             constructor() {
                 this.db = new GalleryDB();
                 this.currentFolder = 'all';
                 this.currentImages = [];
+                this.selectedImages = new Set();
                 this.viewMode = 'grid';
                 this.currentImageIndex = 0;
                 this.zoom = 1;
                 this.rotation = 0;
                 this.searchQuery = '';
+                this.accentColor = '#00d4ff';
             }
 
             async init() {
@@ -440,10 +417,11 @@
                     await this.db.init();
                     await this.createDefaultFolders();
                     this.setupEventListeners();
-                    this.setupTheme();
+                    await this.loadSettings();
                     await this.loadGallery('all');
                     await this.updateBadges();
                     await this.renderFolderTree();
+                    this.setupThemeColors();
                     Toast.show('Gallery loaded successfully', 'success');
                 } catch (error) {
                     console.error('Initialization error:', error);
@@ -455,9 +433,9 @@
                 const folders = await this.db.getFolders();
                 if (folders.length === 0) {
                     const defaultFolders = [
-                        { id: 'camera-roll', name: 'Camera Roll', parentId: null, type: 'default', createdDate: new Date().toISOString() },
-                        { id: 'screenshots', name: 'Screenshots', parentId: null, type: 'default', createdDate: new Date().toISOString() },
-                        { id: 'downloads', name: 'Downloads', parentId: null, type: 'default', createdDate: new Date().toISOString() }
+                        { id: 'camera-roll', name: 'Camera Roll', parentId: null, type: 'default' },
+                        { id: 'screenshots', name: 'Screenshots', parentId: null, type: 'default' },
+                        { id: 'downloads', name: 'Downloads', parentId: null, type: 'default' },
                     ];
 
                     for (const folder of defaultFolders) {
@@ -466,44 +444,8 @@
                 }
             }
 
-            setupTheme() {
-                const themeToggle = document.getElementById('themeToggle');
-                const contrastRadios = document.querySelectorAll('input[name="contrast"]');
-
-                // Load theme settings
-                const savedTheme = localStorage.getItem('gallery-theme') || 'dark';
-                const savedContrast = localStorage.getItem('gallery-contrast') || 'normal';
-
-                document.documentElement.setAttribute('data-theme', savedTheme);
-                document.documentElement.setAttribute('data-contrast', savedContrast);
-
-                themeToggle.checked = savedTheme === 'light';
-
-                contrastRadios.forEach(radio => {
-                    radio.checked = radio.value === savedContrast;
-                });
-
-                // Theme toggle
-                themeToggle.addEventListener('change', (e) => {
-                    const newTheme = e.target.checked ? 'light' : 'dark';
-                    document.documentElement.setAttribute('data-theme', newTheme);
-                    localStorage.setItem('gallery-theme', newTheme);
-                    Toast.show(`Theme changed to ${newTheme}`, 'info');
-                });
-
-                // Contrast change
-                contrastRadios.forEach(radio => {
-                    radio.addEventListener('change', (e) => {
-                        const newContrast = e.target.value;
-                        document.documentElement.setAttribute('data-contrast', newContrast);
-                        localStorage.setItem('gallery-contrast', newContrast);
-                        Toast.show(`Contrast set to ${newContrast}`, 'info');
-                    });
-                });
-            }
-
             setupEventListeners() {
-                // Sidebar
+                // Menu
                 document.getElementById('menuBtn').addEventListener('click', () => this.toggleSidebar());
                 document.getElementById('sidebarToggle').addEventListener('click', () => this.toggleSidebar());
 
@@ -511,17 +453,22 @@
                 document.getElementById('uploadBtn').addEventListener('click', () => this.openUploadModal());
                 document.getElementById('uploadBtnEmpty').addEventListener('click', () => this.openUploadModal());
 
-                // Upload zone
+                // Upload Zone
                 const uploadZone = document.getElementById('uploadZone');
                 uploadZone.addEventListener('click', () => document.getElementById('fileInput').click());
                 uploadZone.addEventListener('dragover', (e) => {
                     e.preventDefault();
-                    uploadZone.classList.add('dragover');
+                    uploadZone.style.background = 'rgba(0, 212, 255, 0.15)';
+                    uploadZone.style.borderColor = '#00b8d4';
                 });
-                uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+                uploadZone.addEventListener('dragleave', () => {
+                    uploadZone.style.background = 'rgba(0, 212, 255, 0.05)';
+                    uploadZone.style.borderColor = 'var(--accent)';
+                });
                 uploadZone.addEventListener('drop', (e) => {
                     e.preventDefault();
-                    uploadZone.classList.remove('dragover');
+                    uploadZone.style.background = 'rgba(0, 212, 255, 0.05)';
+                    uploadZone.style.borderColor = 'var(--accent)';
                     this.handleFiles(e.dataTransfer.files);
                 });
 
@@ -536,8 +483,6 @@
                         item.classList.add('active');
                         const folder = item.dataset.folder;
                         this.currentFolder = folder;
-                        this.searchQuery = '';
-                        document.getElementById('searchInput').value = '';
                         await this.loadGallery(folder);
                     });
                 });
@@ -546,11 +491,7 @@
                 const searchInput = document.getElementById('searchInput');
                 searchInput.addEventListener('input', Utils.debounce(async (e) => {
                     this.searchQuery = e.target.value.toLowerCase();
-                    if (this.searchQuery.length === 0) {
-                        await this.loadGallery(this.currentFolder);
-                    } else {
-                        await this.searchImagesAndFolders(this.searchQuery);
-                    }
+                    await this.performSearch();
                 }, 300));
 
                 // Lightbox
@@ -563,24 +504,31 @@
                 document.getElementById('lightboxRotateRight').addEventListener('click', () => this.rotateImage(90));
                 document.getElementById('lightboxFavorite').addEventListener('click', () => this.toggleFavorite());
                 document.getElementById('lightboxStar').addEventListener('click', () => this.toggleStar());
-                document.getElementById('lightboxDownload').addEventListener('click', () => this.downloadImage());
-                document.getElementById('lightboxDelete').addEventListener('click', () => this.promptDelete());
                 document.getElementById('lightboxDetails').addEventListener('click', () => this.showImageDetails());
+                document.getElementById('lightboxDownload').addEventListener('click', () => this.downloadImage());
                 document.getElementById('lightboxShare').addEventListener('click', () => this.shareImage());
-
-                // Keyboard shortcuts
-                document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
+                document.getElementById('lightboxDelete').addEventListener('click', () => this.deleteCurrentImage());
 
                 // View mode
                 document.getElementById('viewModeBtn').addEventListener('click', () => this.toggleViewMode());
 
-                // Add folder button
+                // Keyboard
+                document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
+
+                // Add folder
                 document.getElementById('addFolderBtn').addEventListener('click', () => this.promptNewFolder());
 
                 // Settings
                 document.getElementById('settingsBtn').addEventListener('click', () => this.openSettings());
-                document.getElementById('exportDataBtn').addEventListener('click', () => this.exportData());
-                document.getElementById('clearCacheBtn').addEventListener('click', () => this.clearCache());
+
+                // Delete selected
+                document.getElementById('deleteSelectedBtn').addEventListener('click', () => this.deleteSelected());
+
+                // Theme toggle
+                document.getElementById('darkModeToggle').addEventListener('click', () => this.toggleTheme());
+
+                // Clear cache
+                document.getElementById('clearCacheBtn').addEventListener('click', () => this.promptClearCache());
             }
 
             toggleSidebar() {
@@ -609,7 +557,7 @@
                         images = allImages.filter(img => starredIds.includes(img.id));
                     } else if (folder === 'recent') {
                         const allImages = await this.db.getAllImages();
-                        images = allImages.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate)).slice(0, 100);
+                        images = allImages.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
                     } else if (folder === 'trash') {
                         images = await this.db.getTrashItems();
                     } else {
@@ -617,6 +565,8 @@
                     }
 
                     this.currentImages = images;
+                    this.selectedImages.clear();
+                    document.getElementById('deleteSelectedBtn').style.display = 'none';
 
                     if (images.length === 0) {
                         galleryContent.innerHTML = `
@@ -651,8 +601,13 @@
                 images.forEach((image, index) => {
                     const item = document.createElement('div');
                     item.className = 'gallery-item';
+
+                    const isSelected = this.selectedImages.has(image.id);
+                    if (isSelected) {
+                        item.classList.add('selected');
+                    }
+
                     item.innerHTML = `
-                        <div class="gallery-item-label">${image.name}</div>
                         <img src="${image.thumbnail || image.dataUrl}" alt="${image.name}" loading="lazy">
                         <div class="gallery-item-overlay">
                             <button class="gallery-item-btn" title="View">
@@ -661,50 +616,79 @@
                         </div>
                     `;
 
-                    item.addEventListener('click', () => this.openLightbox(index));
+                    item.addEventListener('click', (e) => {
+                        if (e.ctrlKey || e.metaKey) {
+                            this.toggleImageSelection(image.id, item);
+                        } else {
+                            this.openLightbox(index);
+                        }
+                    });
+
                     grid.appendChild(item);
                 });
 
                 galleryContent.appendChild(grid);
             }
 
+            toggleImageSelection(imageId, element) {
+                if (this.selectedImages.has(imageId)) {
+                    this.selectedImages.delete(imageId);
+                    element.classList.remove('selected');
+                } else {
+                    this.selectedImages.add(imageId);
+                    element.classList.add('selected');
+                }
+
+                document.getElementById('deleteSelectedBtn').style.display = 
+                    this.selectedImages.size > 0 ? 'flex' : 'none';
+            }
+
+            async deleteSelected() {
+                const count = this.selectedImages.size;
+                document.getElementById('confirmTitle').textContent = 'Delete Images';
+                document.getElementById('confirmMessage').textContent = 
+                    `Are you sure you want to delete ${count} image${count > 1 ? 's' : ''}?`;
+
+                document.getElementById('confirmBtn').onclick = async () => {
+                    for (const imageId of this.selectedImages) {
+                        const image = this.currentImages.find(img => img.id === imageId);
+                        if (image) {
+                            await this.db.moveToTrash(image);
+                            await this.db.deleteImage(imageId);
+                        }
+                    }
+
+                    this.selectedImages.clear();
+                    document.getElementById('deleteSelectedBtn').style.display = 'none';
+                    await this.loadGallery(this.currentFolder);
+                    await this.updateBadges();
+                    Toast.show(`${count} image${count > 1 ? 's' : ''} moved to trash`, 'success');
+                    closeModal('confirmModal');
+                };
+
+                openModal('confirmModal');
+            }
+
             openLightbox(index) {
                 this.currentImageIndex = index;
                 const image = this.currentImages[index];
                 document.getElementById('lightboxImage').src = image.dataUrl;
-                document.getElementById('lightboxName').textContent = image.name;
-                document.getElementById('lightboxDetails').textContent = `${Utils.formatFileSize(image.size)} • ${image.width}×${image.height}`;
-                document.getElementById('lightboxIndex').textContent = `${index + 1} / ${this.currentImages.length}`;
+                this.updateLightboxInfo(image);
                 document.getElementById('lightboxBackdrop').classList.add('active');
                 this.zoom = 1;
                 this.rotation = 0;
-                
-                this.updateLightboxButtons();
             }
 
             closeLightbox() {
                 document.getElementById('lightboxBackdrop').classList.remove('active');
             }
 
-            async updateLightboxButtons() {
-                const image = this.currentImages[this.currentImageIndex];
-                const isFav = await this.db.isFavorite(image.id);
-                const isStarred = await this.db.isStarred(image.id);
-
-                const favBtn = document.getElementById('lightboxFavorite');
-                const starBtn = document.getElementById('lightboxStar');
-
-                if (isFav) {
-                    favBtn.classList.add('active');
-                } else {
-                    favBtn.classList.remove('active');
-                }
-
-                if (isStarred) {
-                    starBtn.classList.add('active');
-                } else {
-                    starBtn.classList.remove('active');
-                }
+            updateLightboxInfo(image) {
+                document.getElementById('infoName').textContent = image.name;
+                document.getElementById('infoSize').textContent = `Size: ${Utils.formatFileSize(image.size)}`;
+                document.getElementById('infoResolution').textContent = `Resolution: ${image.width}x${image.height}`;
+                document.getElementById('infoDate').textContent = `Date: ${Utils.formatDate(image.createdDate)}`;
+                document.getElementById('infoLocation').textContent = `Folder: ${image.folderId}`;
             }
 
             nextImage() {
@@ -723,16 +707,15 @@
                 this.zoom *= factor;
                 this.zoom = Math.max(0.5, Math.min(this.zoom, 5));
                 const img = document.getElementById('lightboxImage');
-                const zoomPercent = Math.round(this.zoom * 100);
                 img.style.transform = `scale(${this.zoom}) rotate(${this.rotation}deg)`;
-                Toast.show(`Zoom: ${zoomPercent}%`, 'info', 1000);
+                Toast.show(`Zoom: ${Math.round(this.zoom * 100)}%`, 'info', 1000);
             }
 
             rotateImage(angle) {
-                this.rotation = (this.rotation + angle) % 360;
+                this.rotation = (this.rotation + angle + 360) % 360;
                 const img = document.getElementById('lightboxImage');
                 img.style.transform = `scale(${this.zoom}) rotate(${this.rotation}deg)`;
-                Toast.show(`Rotated: ${this.rotation}°`, 'info', 1000);
+                Toast.show(`Rotated ${angle > 0 ? '↻' : '↺'} ${Math.abs(angle)}°`, 'info', 1000);
             }
 
             async toggleFavorite() {
@@ -741,14 +724,13 @@
 
                 if (isFav) {
                     await this.db.removeFromFavorites(image.id);
-                    Toast.show(`Removed from Favorite`, 'info');
+                    Toast.show(`Removed "${image.name}" from favorites`, 'info');
                 } else {
                     await this.db.addToFavorites(image.id);
-                    Toast.show(`Added "${image.name}" to Favorite`, 'success');
+                    Toast.show(`Added "${image.name}" to favorites`, 'success');
                 }
 
                 await this.updateBadges();
-                await this.updateLightboxButtons();
             }
 
             async toggleStar() {
@@ -757,19 +739,59 @@
 
                 if (isStarred) {
                     await this.db.removeFromStarred(image.id);
-                    Toast.show(`Image moved back from Starred Folder`, 'info');
+                    Toast.show(`Star removed from "${image.name}"`, 'info');
                 } else {
                     await this.db.addToStarred(image.id);
-                    Toast.show(`Image moved to Starred Folder`, 'success');
+                    image.folderId = 'starred';
+                    await this.db.updateImage(image);
+                    Toast.show(`"${image.name}" moved to Starred folder`, 'success');
                 }
 
                 await this.updateBadges();
-                await this.updateLightboxButtons();
-                
-                if (this.currentFolder === 'starred') {
-                    await this.loadGallery('starred');
-                    this.closeLightbox();
-                }
+            }
+
+            showImageDetails() {
+                const image = this.currentImages[this.currentImageIndex];
+                const detailsContent = document.getElementById('detailsContent');
+
+                detailsContent.innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <img src="${image.dataUrl}" alt="${image.name}" style="width: 100%; border-radius: 8px; margin-bottom: 20px;">
+                    </div>
+
+                    <div class="image-details-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">File Name</div>
+                            <div class="detail-value">${image.name}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">File Size</div>
+                            <div class="detail-value">${Utils.formatFileSize(image.size)}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Dimensions</div>
+                            <div class="detail-value">${image.width} × ${image.height}px</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">File Type</div>
+                            <div class="detail-value">${image.type || 'Image'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Created</div>
+                            <div class="detail-value">${Utils.formatDate(image.createdDate)}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Modified</div>
+                            <div class="detail-value">${Utils.formatDate(image.modifiedDate)}</div>
+                        </div>
+                        <div class="detail-item" style="grid-column: 1 / -1;">
+                            <div class="detail-label">Folder Location</div>
+                            <div class="detail-value">${image.folderId}</div>
+                        </div>
+                    </div>
+                `;
+
+                openModal('detailsModal');
             }
 
             downloadImage() {
@@ -781,70 +803,46 @@
                 Toast.show(`Downloaded "${image.name}"`, 'success');
             }
 
-            promptDelete() {
+            async shareImage() {
                 const image = this.currentImages[this.currentImageIndex];
-                showConfirmation(
-                    'Delete Image',
-                    `Are you sure you want to delete "${image.name}"? This action can be undone from Trash.`,
-                    async () => {
-                        await this.deleteImage(image.id);
+
+                if (navigator.share) {
+                    try {
+                        const blob = await fetch(image.dataUrl).then(r => r.blob());
+                        const file = new File([blob], image.name, { type: image.type });
+                        await navigator.share({
+                            files: [file],
+                            title: 'Horizon Gallery',
+                            text: image.name
+                        });
+                        Toast.show(`Shared "${image.name}"`, 'success');
+                    } catch (error) {
+                        if (error.name !== 'AbortError') {
+                            Toast.show('Error sharing image', 'error');
+                        }
                     }
-                );
+                } else {
+                    Toast.show('Share not supported on this browser', 'warning');
+                }
             }
 
-            async deleteImage(imageId) {
-                const image = await this.db.getImage(imageId);
-                if (image) {
+            async deleteCurrentImage() {
+                const image = this.currentImages[this.currentImageIndex];
+                document.getElementById('confirmTitle').textContent = 'Delete Image';
+                document.getElementById('confirmMessage').textContent = 
+                    `Are you sure you want to delete "${image.name}"?`;
+
+                document.getElementById('confirmBtn').onclick = async () => {
                     await this.db.moveToTrash(image);
-                    await this.db.deleteImage(imageId);
+                    await this.db.deleteImage(image.id);
                     this.closeLightbox();
                     await this.loadGallery(this.currentFolder);
                     await this.updateBadges();
-                    Toast.show(`Image moved to Trash`, 'success');
-                }
-            }
+                    Toast.show(`"${image.name}" moved to trash`, 'success');
+                    closeModal('confirmModal');
+                };
 
-            async showImageDetails() {
-                const image = this.currentImages[this.currentImageIndex];
-                const detailsContent = document.getElementById('detailsContent');
-                
-                const details = [
-                    { label: 'File Name', value: image.name },
-                    { label: 'File Size', value: Utils.formatFileSize(image.size) },
-                    { label: 'Dimensions', value: `${image.width} × ${image.height} px` },
-                    { label: 'Type', value: image.type },
-                    { label: 'Location', value: image.folderId },
-                    { label: 'Created', value: Utils.formatDate(image.createdDate) },
-                    { label: 'Modified', value: Utils.formatDate(image.modifiedDate) },
-                    { label: 'Aspect Ratio', value: `${(image.width / image.height).toFixed(2)}:1` }
-                ];
-
-                detailsContent.innerHTML = details.map(d => `
-                    <div>
-                        <div style="font-weight: 600; font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">${d.label}</div>
-                        <div style="color: var(--text-primary); word-break: break-all;">${d.value}</div>
-                    </div>
-                `).join('');
-
-                document.getElementById('detailsModal').classList.add('active');
-            }
-
-            shareImage() {
-                const image = this.currentImages[this.currentImageIndex];
-                
-                if (navigator.share) {
-                    navigator.share({
-                        title: image.name,
-                        text: 'Check out this photo!',
-                        files: [new File([image.dataUrl], image.name, { type: image.type })]
-                    }).catch(err => console.log('Share cancelled'));
-                } else {
-                    // Fallback
-                    const link = document.createElement('a');
-                    link.href = image.dataUrl;
-                    link.download = image.name;
-                    Toast.show(`Share URL copied to clipboard`, 'info');
-                }
+                openModal('confirmModal');
             }
 
             handleKeyboardShortcuts(e) {
@@ -852,25 +850,26 @@
 
                 switch(e.key) {
                     case 'ArrowLeft':
-                        e.preventDefault();
                         this.prevImage();
                         break;
                     case 'ArrowRight':
-                        e.preventDefault();
                         this.nextImage();
                         break;
                     case 'Escape':
                         this.closeLightbox();
                         break;
                     case 'Delete':
-                        this.promptDelete();
+                        this.deleteCurrentImage();
                         break;
-                    case '+':
-                    case '=':
-                        this.zoomImage(1.2);
+                    case 's':
+                    case 'S':
+                        e.preventDefault();
+                        this.toggleStar();
                         break;
-                    case '-':
-                        this.zoomImage(0.8);
+                    case 'f':
+                    case 'F':
+                        e.preventDefault();
+                        this.toggleFavorite();
                         break;
                 }
             }
@@ -897,7 +896,7 @@
                             height: dimensions.height,
                             dataUrl: dataUrl,
                             thumbnail: dataUrl,
-                            folderId: this.currentFolder === 'all' || this.currentFolder === 'recent' ? 'camera-roll' : this.currentFolder,
+                            folderId: this.currentFolder === 'all' ? 'camera-roll' : this.currentFolder,
                             createdDate: new Date().toISOString(),
                             modifiedDate: new Date().toISOString()
                         };
@@ -909,23 +908,22 @@
                         progressItem.style.cssText = 'padding: 10px; background: rgba(0,212,255,0.1); border-left: 3px solid #0ecc71; margin-bottom: 8px; border-radius: 4px;';
                         progressItem.innerHTML = `
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <i class="fas fa-check"></i>
+                                <i class="fas fa-check" style="color: #0ecc71;"></i>
                                 <span>${file.name} (${Utils.formatFileSize(file.size)})</span>
                             </div>
                         `;
                         progressDiv.appendChild(progressItem);
                     } catch (error) {
                         console.error('Error uploading file:', error);
+                        Toast.show(`Error uploading ${file.name}`, 'error');
                     }
                 }
 
                 if (uploadedCount > 0) {
                     await this.loadGallery(this.currentFolder);
                     await this.updateBadges();
-                    Toast.show(`${uploadedCount} image(s) uploaded successfully`, 'success');
-                    setTimeout(() => {
-                        this.closeUploadModal();
-                    }, 1500);
+                    Toast.show(`${uploadedCount} image${uploadedCount > 1 ? 's' : ''} uploaded successfully`, 'success');
+                    setTimeout(() => this.closeUploadModal(), 1500);
                 }
             }
 
@@ -939,16 +937,21 @@
                 document.getElementById('fileInput').value = '';
             }
 
-            async searchImagesAndFolders(query) {
+            async performSearch() {
+                if (this.searchQuery.length === 0) {
+                    await this.loadGallery(this.currentFolder);
+                    return;
+                }
+
                 const allImages = await this.db.getAllImages();
                 const allFolders = await this.db.getFolders();
 
                 const filteredImages = allImages.filter(img =>
-                    img.name.toLowerCase().includes(query)
+                    img.name.toLowerCase().includes(this.searchQuery)
                 );
 
                 const filteredFolders = allFolders.filter(folder =>
-                    folder.name.toLowerCase().includes(query)
+                    folder.name.toLowerCase().includes(this.searchQuery)
                 );
 
                 const galleryContent = document.getElementById('galleryContent');
@@ -957,76 +960,57 @@
                 if (filteredImages.length === 0 && filteredFolders.length === 0) {
                     galleryContent.innerHTML = `
                         <div class="empty-state">
-                            <div class="empty-state-icon"><i class="fas fa-search"></i></div>
+                            <div class="empty-state-icon">
+                                <i class="fas fa-search"></i>
+                            </div>
                             <div class="empty-state-title">No results found</div>
-                            <div class="empty-state-text">Try searching with different keywords</div>
+                            <div class="empty-state-text">No images or folders match "${this.searchQuery}"</div>
                         </div>
                     `;
                     return;
                 }
 
-                // Show folders
+                let html = '';
+
                 if (filteredFolders.length > 0) {
-                    const folderSection = document.createElement('div');
-                    folderSection.style.marginBottom = '30px';
-                    folderSection.innerHTML = '<div style="font-weight: 600; margin-bottom: 12px; color: var(--text-secondary); text-transform: uppercase; font-size: 12px;">Folders</div>';
-                    
-                    const folderGrid = document.createElement('div');
-                    folderGrid.style.display = 'grid';
-                    folderGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(150px, 1fr))';
-                    folderGrid.style.gap = '12px';
-
+                    html += '<div style="margin-bottom: 30px;"><div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary);">FOLDERS</div><div style="display: grid; gap: 8px;">';
                     filteredFolders.forEach(folder => {
-                        const folderItem = document.createElement('div');
-                        folderItem.style.cssText = 'background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: var(--transition);';
-                        folderItem.innerHTML = `
-                            <div style="font-size: 32px; margin-bottom: 8px;"><i class="fas fa-folder" style="color: var(--accent);"></i></div>
-                            <div style="font-size: 14px; font-weight: 500;">${folder.name}</div>
+                        html += `
+                            <div style="padding: 12px; background: rgba(0,212,255,0.1); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-folder" style="color: var(--accent);"></i>
+                                <span>${folder.name}</span>
+                            </div>
                         `;
-                        folderItem.addEventListener('mouseover', () => folderItem.style.borderColor = 'var(--accent)');
-                        folderItem.addEventListener('mouseout', () => folderItem.style.borderColor = 'var(--border-color)');
-                        folderItem.addEventListener('click', async () => {
-                            this.currentFolder = folder.id;
-                            document.querySelectorAll('[data-folder]').forEach(i => i.classList.remove('active'));
-                            await this.loadGallery(folder.id);
-                        });
-                        folderGrid.appendChild(folderItem);
                     });
-
-                    folderSection.appendChild(folderGrid);
-                    galleryContent.appendChild(folderSection);
+                    html += '</div></div>';
                 }
 
-                // Show images
                 if (filteredImages.length > 0) {
-                    const imageSection = document.createElement('div');
-                    imageSection.innerHTML = '<div style="font-weight: 600; margin-bottom: 12px; color: var(--text-secondary); text-transform: uppercase; font-size: 12px;">Photos</div>';
-                    
+                    html += '<div style="margin-bottom: 30px;"><div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary);">IMAGES</div>';
                     const grid = document.createElement('div');
                     grid.className = 'gallery-grid';
+                    galleryContent.innerHTML = html;
+                    galleryContent.appendChild(grid);
 
                     filteredImages.forEach((image, index) => {
                         const item = document.createElement('div');
                         item.className = 'gallery-item';
                         item.innerHTML = `
                             <img src="${image.thumbnail || image.dataUrl}" alt="${image.name}" loading="lazy">
-                            <div class="gallery-item-label">${image.name}</div>
                             <div class="gallery-item-overlay">
-                                <button class="gallery-item-btn" title="View">
+                                <button class="gallery-item-btn">
                                     <i class="fas fa-expand"></i>
                                 </button>
                             </div>
                         `;
-
                         item.addEventListener('click', () => {
                             this.currentImages = filteredImages;
                             this.openLightbox(index);
                         });
                         grid.appendChild(item);
                     });
-
-                    imageSection.appendChild(grid);
-                    galleryContent.appendChild(imageSection);
+                } else {
+                    galleryContent.innerHTML = html;
                 }
             }
 
@@ -1048,19 +1032,19 @@
                 this.viewMode = modes[(currentIndex + 1) % modes.length];
 
                 const grid = document.querySelector('.gallery-grid');
-                if (!grid) return;
-
                 if (this.viewMode === 'list') {
                     grid.style.gridTemplateColumns = '1fr';
                     grid.style.gap = '8px';
-                    Toast.show('List View', 'info');
                 } else if (this.viewMode === 'masonry') {
-                    grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(150px, 1fr))';
-                    Toast.show('Masonry View', 'info');
+                    grid.style.columnCount = '3';
+                    grid.style.columnGap = '12px';
                 } else {
                     grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(180px, 1fr))';
-                    Toast.show('Grid View', 'info');
+                    grid.style.columnCount = 'unset';
                 }
+
+                const modeNames = { grid: 'Grid', list: 'List', masonry: 'Masonry' };
+                Toast.show(`View mode: ${modeNames[this.viewMode]}`, 'info');
             }
 
             async promptNewFolder() {
@@ -1075,7 +1059,7 @@
                     });
 
                     await this.renderFolderTree();
-                    Toast.show(`Folder "${name}" created`, 'success');
+                    Toast.show(`Folder "${name}" created successfully`, 'success');
                 }
             }
 
@@ -1086,146 +1070,145 @@
 
                 folders.filter(f => f.parentId === null).forEach(folder => {
                     const item = document.createElement('div');
-                    item.className = 'sidebar-item';
-                    item.style.display = 'flex';
-                    item.style.justifyContent = 'space-between';
+                    item.className = 'folder-item';
                     item.innerHTML = `
-                        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                            <i class="fas fa-folder"></i>
-                            <span>${folder.name}</span>
-                        </div>
-                        <div style="display: flex; gap: 5px;">
-                            <button data-folder-id="${folder.id}" class="folder-rename-btn" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 12px; padding: 0; width: auto;" title="Rename">
-                                <i class="fas fa-pen"></i>
-                            </button>
-                            <button data-folder-id="${folder.id}" class="folder-delete-btn" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 12px; padding: 0; width: auto;" title="Delete">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
+                        <i class="fas fa-folder"></i>
+                        <span>${folder.name}</span>
                     `;
-
-                    const mainPart = item.querySelector('div:first-child');
-                    mainPart.addEventListener('click', async () => {
+                    item.addEventListener('click', async () => {
                         document.querySelectorAll('[data-folder]').forEach(i => i.classList.remove('active'));
                         item.classList.add('active');
                         this.currentFolder = folder.id;
-                        this.searchQuery = '';
-                        document.getElementById('searchInput').value = '';
                         await this.loadGallery(folder.id);
                     });
-
-                    item.querySelector('.folder-rename-btn').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.promptRenameFolder(folder.id, folder.name);
-                    });
-
-                    item.querySelector('.folder-delete-btn').addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.promptDeleteFolder(folder.id, folder.name);
-                    });
-
                     tree.appendChild(item);
                 });
             }
 
-            async promptRenameFolder(folderId, oldName) {
-                const newName = prompt(`Rename "${oldName}" to:`, oldName);
-                if (newName && newName.trim() && newName !== oldName) {
-                    await this.db.renameFolder(folderId, newName.trim());
-                    await this.renderFolderTree();
-                    Toast.show(`Renamed "${oldName}" to "${newName}"`, 'success');
-                }
-            }
-
-            async promptDeleteFolder(folderId, folderName) {
-                const images = await this.db.getImagesByFolder(folderId);
-                showConfirmation(
-                    'Delete Folder',
-                    `Are you sure you want to delete "${folderName}"? ${images.length > 0 ? `This folder contains ${images.length} image(s).` : ''}`,
-                    async () => {
-                        for (const image of images) {
-                            await this.db.moveToTrash(image);
-                            await this.db.deleteImage(image.id);
-                        }
-                        await this.db.deleteFolder(folderId);
-                        await this.renderFolderTree();
-                        await this.loadGallery('all');
-                        await this.updateBadges();
-                        Toast.show(`Folder deleted`, 'success');
-                    }
-                );
-            }
-
             openSettings() {
-                document.getElementById('settingsModal').classList.add('active');
+                this.updateStorageInfo();
+                this.setupThemeColors();
+                openModal('settingsModal');
             }
 
-            async exportData() {
-                try {
-                    const images = await this.db.getAllImages();
-                    const folders = await this.db.getFolders();
-                    const favorites = await this.db.getAllFavorites();
-                    const starred = await this.db.getAllStarred();
+            setupThemeColors() {
+                const colorOptions = document.getElementById('colorOptions');
+                colorOptions.innerHTML = '';
 
-                    const exportData = {
-                        version: '1.0',
-                        exportDate: new Date().toISOString(),
-                        images: images,
-                        folders: folders,
-                        favorites: favorites,
-                        starred: starred
-                    };
+                const colors = [
+                    { name: 'Cyan', value: '#00d4ff' },
+                    { name: 'Blue', value: '#0084ff' },
+                    { name: 'Pink', value: '#ff006e' },
+                    { name: 'Purple', value: '#a855f7' },
+                    { name: 'Green', value: '#10b981' },
+                    { name: 'Orange', value: '#f97316' }
+                ];
 
-                    const dataStr = JSON.stringify(exportData, null, 2);
-                    const link = document.createElement('a');
-                    link.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(dataStr);
-                    link.download = `gallery-backup-${new Date().toISOString().split('T')[0]}.json`;
-                    link.click();
-                    Toast.show('Data exported successfully', 'success');
-                } catch (error) {
-                    Toast.show('Error exporting data', 'error');
+                colors.forEach(color => {
+                    const option = document.createElement('div');
+                    option.className = 'color-option';
+                    if (color.value === this.accentColor) {
+                        option.classList.add('selected');
+                    }
+                    option.style.background = color.value;
+                    option.title = color.name;
+                    option.addEventListener('click', () => this.setAccentColor(color.value));
+                    colorOptions.appendChild(option);
+                });
+            }
+
+            async setAccentColor(color) {
+                this.accentColor = color;
+                document.documentElement.style.setProperty('--accent', color);
+                await this.db.saveSetting('accentColor', color);
+                this.setupThemeColors();
+                Toast.show(`Theme color changed to ${color}`, 'success');
+            }
+
+            toggleTheme() {
+                const toggle = document.getElementById('darkModeToggle');
+                const isDark = toggle.classList.contains('active');
+
+                toggle.classList.toggle('active');
+                document.body.classList.toggle('light-theme');
+
+                this.db.saveSetting('darkMode', !isDark);
+                Toast.show(isDark ? 'Light mode enabled' : 'Dark mode enabled', 'info');
+            }
+
+            async loadSettings() {
+                const darkMode = await this.db.getSetting('darkMode');
+                const accentColor = await this.db.getSetting('accentColor');
+
+                if (darkMode === false) {
+                    document.body.classList.add('light-theme');
+                    document.getElementById('darkModeToggle').classList.remove('active');
+                }
+
+                if (accentColor) {
+                    this.accentColor = accentColor;
+                    document.documentElement.style.setProperty('--accent', accentColor);
                 }
             }
 
-            async clearCache() {
-                showConfirmation(
-                    'Clear Cache',
-                    'This will delete all cached data. Are you sure?',
-                    async () => {
-                        try {
-                            const allImages = await this.db.getAllImages();
-                            for (const image of allImages) {
-                                await this.db.deleteImage(image.id);
-                            }
-                            await this.db.emptyTrash();
-                            await this.loadGallery('all');
-                            await this.updateBadges();
-                            Toast.show('Cache cleared successfully', 'success');
-                        } catch (error) {
-                            Toast.show('Error clearing cache', 'error');
-                        }
-                    }
-                );
+            updateStorageInfo() {
+                const storageInfo = document.getElementById('storageInfo');
+                if (navigator.storage && navigator.storage.estimate) {
+                    navigator.storage.estimate().then(estimate => {
+                        const used = Utils.formatFileSize(estimate.usage);
+                        const quota = Utils.formatFileSize(estimate.quota);
+                        const percent = Math.round((estimate.usage / estimate.quota) * 100);
+
+                        storageInfo.innerHTML = `
+                            <div style="margin-bottom: 12px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                                    <span>Storage Used</span>
+                                    <span>${used} / ${quota}</span>
+                                </div>
+                                <div style="width: 100%; height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden;">
+                                    <div style="height: 100%; width: ${percent}%; background: var(--accent); border-radius: 4px;"></div>
+                                </div>
+                            </div>
+                            <div style="font-size: 12px; color: #888;">${percent}% storage used</div>
+                        `;
+                    });
+                }
+            }
+
+            promptClearCache() {
+                document.getElementById('confirmTitle').textContent = 'Clear All Data';
+                document.getElementById('confirmMessage').textContent = 
+                    'Are you sure you want to delete all images and data? This action cannot be undone.';
+
+                document.getElementById('confirmBtn').innerHTML = '<i class="fas fa-trash"></i> Clear';
+                document.getElementById('confirmBtn').style.background = '#ff6b6b';
+                document.getElementById('confirmBtn').style.color = 'white';
+
+                document.getElementById('confirmBtn').onclick = async () => {
+                    await this.db.clearAll();
+                    this.currentImages = [];
+                    this.selectedImages.clear();
+                    await this.createDefaultFolders();
+                    await this.loadGallery('all');
+                    await this.updateBadges();
+                    await this.renderFolderTree();
+                    Toast.show('All data cleared successfully', 'success');
+                    closeModal('confirmModal');
+                };
+
+                openModal('confirmModal');
             }
         }
 
         // ============================================
         // GLOBAL FUNCTIONS
         // ============================================
-        window.closeModal = function(modalId) {
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('active');
-        };
-
-        function showConfirmation(title, message, onConfirm) {
-            document.getElementById('confirmTitle').textContent = title;
-            document.getElementById('confirmMessage').textContent = message;
-            document.getElementById('confirmModal').classList.add('active');
-
-            const confirmBtn = document.getElementById('confirmBtn');
-            confirmBtn.onclick = async () => {
-                await onConfirm();
-                window.closeModal('confirmModal');
-            };
         }
 
         let gallery;
@@ -1241,36 +1224,3 @@
                 e.target.classList.remove('active');
             }
         });
-
-// Delete after Test
-async init() {
-    try {
-        console.log("DB Init Start");
-
-        await this.db.init();
-
-        console.log("DB Init Success");
-
-        await this.createDefaultFolders();
-
-        console.log("Folders Success");
-
-        this.setupEventListeners();
-
-        console.log("Events Success");
-
-        this.setupTheme();
-
-        console.log("Theme Success");
-
-        await this.loadGallery('all');
-
-        console.log("Gallery Loaded");
-
-    } catch(error) {
-        console.error(
-            "INIT FAILED:",
-            error
-        );
-    }
-}
