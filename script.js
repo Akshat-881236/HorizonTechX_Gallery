@@ -1241,3 +1241,36 @@
                 e.target.classList.remove('active');
             }
         });
+
+// Delete after Test
+async init() {
+    try {
+        console.log("DB Init Start");
+
+        await this.db.init();
+
+        console.log("DB Init Success");
+
+        await this.createDefaultFolders();
+
+        console.log("Folders Success");
+
+        this.setupEventListeners();
+
+        console.log("Events Success");
+
+        this.setupTheme();
+
+        console.log("Theme Success");
+
+        await this.loadGallery('all');
+
+        console.log("Gallery Loaded");
+
+    } catch(error) {
+        console.error(
+            "INIT FAILED:",
+            error
+        );
+    }
+}
