@@ -13,6 +13,60 @@
             --text-secondary: #b0b0b0;
         }
 
+#app-splash{
+    position:fixed;
+    inset:0;
+    background:#0f172a;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    z-index:999999;
+    animation:fadeOut 1s ease 2.5s forwards;
+}
+
+#app-splash img{
+    width:120px;
+    height:120px;
+    animation:
+      zoomIn 1.2s ease,
+      floatLogo 2s ease-in-out infinite;
+}
+
+#app-splash h1{
+    color:white;
+    margin-top:20px;
+    font-size:2rem;
+    letter-spacing:2px;
+}
+
+@keyframes zoomIn{
+    from{
+        transform:scale(0);
+        opacity:0;
+    }
+    to{
+        transform:scale(1);
+        opacity:1;
+    }
+}
+
+@keyframes floatLogo{
+    0%,100%{
+        transform:translateY(0);
+    }
+    50%{
+        transform:translateY(-10px);
+    }
+}
+
+@keyframes fadeOut{
+    to{
+        opacity:0;
+        visibility:hidden;
+    }
+}
+
         * {
             margin: 0;
             padding: 0;
