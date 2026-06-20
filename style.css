@@ -1082,3 +1082,96 @@
         .absolute {
             position: absolute;
         }
+
+        .ht-dialog-overlay{
+            position:fixed;
+            inset:0;
+            background:rgba(0,0,0,.65);
+            backdrop-filter:blur(8px);
+            z-index:999999;
+        
+            display:flex;
+            align-items:center;
+            justify-content:center;
+        }
+        
+        .ht-dialog{
+            width:90%;
+            max-width:420px;
+        
+            background:#0f172a;
+        
+            border:1px solid rgba(255,255,255,.08);
+        
+            border-radius:20px;
+        
+            padding:28px;
+        
+            text-align:center;
+        
+            box-shadow:
+                0 20px 60px rgba(0,0,0,.4);
+        }
+        
+        .ht-dialog-icon{
+            font-size:42px;
+            color:#3b82f6;
+            margin-bottom:16px;
+        }
+        
+        .ht-dialog h3{
+            color:white;
+            margin-bottom:10px;
+        }
+        
+        .ht-dialog p{
+            color:#94a3b8;
+            line-height:1.7;
+        }
+        
+        .ht-dialog-actions{
+            display:flex;
+            gap:12px;
+            margin-top:24px;
+        }
+        
+        .ht-btn{
+            flex:1;
+            border:none;
+            cursor:pointer;
+            border-radius:12px;
+            padding:12px;
+            font-weight:600;
+        }
+        
+        .ht-btn-cancel{
+            background:#1e293b;
+            color:white;
+        }
+        
+        .ht-btn-update{
+            background:#2563eb;
+            color:white;
+        }
+        
+        .ht-toast{
+            position:fixed;
+            right:20px;
+            bottom:20px;
+        
+            z-index:999999;
+        
+            display:flex;
+            gap:10px;
+            align-items:center;
+        
+            background:#0f172a;
+            color:white;
+        
+            padding:14px 20px;
+        
+            border-radius:14px;
+        
+            box-shadow:
+                0 10px 40px rgba(0,0,0,.3);
+        }
