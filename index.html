@@ -11,21 +11,6 @@
     <link rel="icon" href="logo.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="logo.svg" sizes="180x180">
     <link rel="shortcut icon" href="logo.svg" type="image/svg+xml">
-    <link rel="manifest" href="manifest.json">
-    <script class="service-worker-loader">
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", () => {
-                navigator.serviceWorker
-                    .register("service-worker.js")
-                    .then(reg => {
-                        console.log("Service Worker Registered", reg);
-                    })
-                    .catch(err => {
-                        console.error("Service Worker Error:", err);
-                    });
-            });
-        }
-    </script>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Horizon Gallery">
@@ -110,7 +95,7 @@
    <link rel="canonical" href="https://akshat-881236.github.io/HorizonTechX_Gallery/">
     <link rel="stylesheet" href="style.css">
 </head>
-<body data-theme="dark" data-contrast="normal">
+<body>
     <div id="app-splash">
     <img src="logo.svg" alt="Horizon Gallery Logo">
     <h1>Horizon Gallery</h1>
@@ -136,16 +121,6 @@
                     <i class="fas fa-clock"></i>
                     <span>Recent</span>
                 </div>
-            </div>
-
-            <!-- Smart Folders Section -->
-            <div class="sidebar-section">
-                <div class="sidebar-section-title">
-                    <span>Smart Folders</span>
-                    <button style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 12px; margin-left: auto; padding: 0;" id="addFolderBtn" title="Add Folder">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                </div>
                 <div class="sidebar-item" data-folder="favorites">
                     <i class="fas fa-heart"></i>
                     <span>Favorites</span>
@@ -158,9 +133,14 @@
                 </div>
             </div>
 
-            <!-- Custom Folders Section -->
+            <!-- Folders Section -->
             <div class="sidebar-section">
-                <div class="sidebar-section-title">Folders</div>
+                <div class="sidebar-section-title">
+                    Folders
+                    <button style="background: none; border: none; color: #888; cursor: pointer; font-size: 12px; margin-left: auto; padding: 0; width: auto;" id="addFolderBtn" title="Add Folder">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
                 <div id="folderTree"></div>
             </div>
 
@@ -182,7 +162,7 @@
         <div class="main-content">
             <!-- Header -->
             <div class="header">
-                <button class="header-btn" id="menuBtn" title="Toggle Sidebar">
+                <button class="header-btn" id="menuBtn" title="Menu">
                     <i class="fas fa-bars"></i>
                 </button>
 
@@ -191,12 +171,16 @@
                     <input type="text" id="searchInput" placeholder="Search photos or folders...">
                 </div>
 
-                <button class="header-btn" id="uploadBtn" title="Upload Photos">
+                <button class="header-btn" id="uploadBtn" title="Upload">
                     <i class="fas fa-cloud-upload-alt"></i>
                 </button>
 
-                <button class="header-btn" id="viewModeBtn" title="Change View">
+                <button class="header-btn" id="viewModeBtn" title="View Mode">
                     <i class="fas fa-th"></i>
+                </button>
+
+                <button class="header-btn" id="deleteSelectedBtn" title="Delete Selected" style="display: none;">
+                    <i class="fas fa-trash"></i>
                 </button>
             </div>
 
@@ -219,63 +203,64 @@
     <!-- Lightbox Viewer -->
     <div class="lightbox-backdrop" id="lightboxBackdrop">
         <div class="lightbox-container">
-            <button class="lightbox-nav prev" id="lightboxPrev" title="Previous (←)">
+            <!-- Image Info -->
+            <div class="lightbox-info" id="lightboxInfo">
+                <div style="font-weight: 600; margin-bottom: 6px;" id="infoName"></div>
+                <div style="font-size: 12px; opacity: 0.8;">
+                    <div id="infoSize"></div>
+                    <div id="infoResolution"></div>
+                    <div id="infoDate"></div>
+                    <div id="infoLocation"></div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <button class="lightbox-nav prev" id="lightboxPrev">
                 <i class="fas fa-chevron-left"></i>
             </button>
 
             <div class="lightbox-image-container">
                 <img class="lightbox-image" id="lightboxImage" src="" alt="">
-                <div class="lightbox-info">
-                    <div class="lightbox-info-left">
-                        <div>
-                            <i class="fas fa-image" style="font-size: 24px; color: var(--accent);"></i>
-                        </div>
-                        <div class="lightbox-info-text">
-                            <div class="lightbox-info-name" id="lightboxName"></div>
-                            <div class="lightbox-info-details" id="lightboxDetails"></div>
-                        </div>
-                    </div>
-                    <div class="lightbox-info-details" id="lightboxIndex"></div>
-                </div>
             </div>
 
-            <button class="lightbox-nav next" id="lightboxNext" title="Next (→)">
+            <button class="lightbox-nav next" id="lightboxNext">
                 <i class="fas fa-chevron-right"></i>
             </button>
 
-            <button class="lightbox-close" id="lightboxClose" title="Close (ESC)">
+            <button class="lightbox-close" id="lightboxClose">
                 <i class="fas fa-times"></i>
             </button>
 
-            <div class="lightbox-controls">
-                <button class="lightbox-btn" id="lightboxZoomOut" data-action="zoom" title="Zoom Out (-)">
-                    <i class="fas fa-minus"></i>
-                </button>
-                <button class="lightbox-btn" id="lightboxZoomIn" data-action="zoom" title="Zoom In (+)">
+            <!-- Controls -->
+            <div class="lightbox-controls" id="lightboxControls">
+                <button class="lightbox-btn" id="lightboxZoomIn" title="Zoom In">
                     <i class="fas fa-plus"></i>
                 </button>
-                <button class="lightbox-btn" id="lightboxRotateLeft" data-action="rotate" title="Rotate Left">
+                <button class="lightbox-btn" id="lightboxZoomOut" title="Zoom Out">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button class="lightbox-btn" id="lightboxRotateLeft" title="Rotate Left">
                     <i class="fas fa-redo"></i>
                 </button>
-                <button class="lightbox-btn" id="lightboxRotateRight" data-action="rotate" title="Rotate Right">
+                <button class="lightbox-btn" id="lightboxRotateRight" title="Rotate Right">
                     <i class="fas fa-undo"></i>
                 </button>
-                <button class="lightbox-btn" id="lightboxFavorite" data-action="favorite" title="Add to Favorite">
+                <button class="lightbox-btn" id="lightboxFavorite" title="Add to Favorites">
                     <i class="fas fa-heart"></i>
                 </button>
-                <button class="lightbox-btn" id="lightboxStar" data-action="star" title="Add to Starred">
+                <button class="lightbox-btn" id="lightboxStar" title="Star Image">
                     <i class="fas fa-star"></i>
                 </button>
-                <button class="lightbox-btn" id="lightboxDetails" data-action="details" title="View Details">
+                <button class="lightbox-btn" id="lightboxDetails" title="Image Details">
                     <i class="fas fa-info-circle"></i>
                 </button>
-                <button class="lightbox-btn" id="lightboxShare" data-action="share" title="Share">
-                    <i class="fas fa-share-alt"></i>
-                </button>
-                <button class="lightbox-btn" id="lightboxDownload" data-action="download" title="Download">
+                <button class="lightbox-btn" id="lightboxDownload" title="Download">
                     <i class="fas fa-download"></i>
                 </button>
-                <button class="lightbox-btn" id="lightboxDelete" data-action="delete" title="Delete">
+                <button class="lightbox-btn" id="lightboxShare" title="Share">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+                <button class="lightbox-btn" id="lightboxDelete" title="Delete">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -286,17 +271,17 @@
     <div class="modal-custom" id="uploadModal">
         <div class="modal-content-custom">
             <div class="modal-header-custom">
-                <div class="modal-title-custom"><i class="fas fa-cloud-upload-alt"></i> Upload Photos</div>
+                <div class="modal-title-custom">Upload Photos</div>
                 <button class="modal-close-btn" onclick="closeModal('uploadModal')">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
 
-            <div class="upload-zone" id="uploadZone">
-                <div class="upload-zone-icon">
+            <div style="border: 2px dashed var(--accent); border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; background: rgba(0, 212, 255, 0.05);" id="uploadZone">
+                <div style="font-size: 30px; margin-bottom: 10px;">
                     <i class="fas fa-cloud-upload-alt"></i>
                 </div>
-                <div style="font-weight: 600; margin-bottom: 5px; color: var(--text-primary);">Drag photos here</div>
+                <div style="font-weight: 600; margin-bottom: 5px;">Drag photos here</div>
                 <div style="color: var(--text-secondary); font-size: 13px;">or click to select files</div>
                 <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
             </div>
@@ -313,13 +298,36 @@
     <div class="modal-custom" id="detailsModal">
         <div class="modal-content-custom">
             <div class="modal-header-custom">
-                <div class="modal-title-custom"><i class="fas fa-info-circle"></i> Image Details</div>
+                <div class="modal-title-custom">Image Details</div>
                 <button class="modal-close-btn" onclick="closeModal('detailsModal')">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
 
-            <div id="detailsContent" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;"></div>
+            <div id="detailsContent">
+                <!-- Details will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div class="modal-custom" id="confirmModal">
+        <div class="modal-content-custom">
+            <div class="modal-header-custom">
+                <div class="modal-title-custom" id="confirmTitle">Confirm Action</div>
+                <button class="modal-close-btn" onclick="closeModal('confirmModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div id="confirmMessage" style="margin-bottom: 20px; color: var(--text-secondary);">
+                <!-- Message will be inserted here -->
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-secondary-custom" onclick="closeModal('confirmModal')" style="flex: 1;">Cancel</button>
+                <button class="btn-primary-custom" id="confirmBtn" style="flex: 1;">Confirm</button>
+            </div>
         </div>
     </div>
 
@@ -327,124 +335,53 @@
     <div class="modal-custom" id="settingsModal">
         <div class="modal-content-custom">
             <div class="modal-header-custom">
-                <div class="modal-title-custom"><i class="fas fa-cog"></i> Settings</div>
+                <div class="modal-title-custom">Settings</div>
                 <button class="modal-close-btn" onclick="closeModal('settingsModal')">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
 
-            <div class="settings-grid">
-                <!-- Theme Settings -->
+            <div class="settings-panel">
+                <!-- Theme Section -->
                 <div class="settings-section">
-                    <div class="settings-title">
-                        <i class="fas fa-moon"></i> Theme
+                    <div class="settings-section-title">
+                        <i class="fas fa-palette" style="margin-right: 8px;"></i>Theme
                     </div>
-                    <div class="settings-item">
-                        <span class="settings-label">Dark Mode</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="themeToggle">
-                            <span class="toggle-slider"></span>
-                        </label>
+                    <div class="settings-option">
+                        <span>Dark Mode</span>
+                        <div class="toggle-switch active" id="darkModeToggle"></div>
                     </div>
                 </div>
 
-                <!-- Color Contrast Settings -->
+                <!-- Color Scheme Section -->
                 <div class="settings-section">
-                    <div class="settings-title">
-                        <i class="fas fa-palette"></i> Color Contrast
+                    <div class="settings-section-title">
+                        <i class="fas fa-palette" style="margin-right: 8px;"></i>Color Theme
                     </div>
-                    <div class="settings-item">
-                        <span class="settings-label">Contrast Level</span>
-                    </div>
-                    <div class="settings-item">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="radio" name="contrast" value="normal" checked>
-                            <span>Normal</span>
-                        </label>
-                    </div>
-                    <div class="settings-item">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="radio" name="contrast" value="high">
-                            <span>High Contrast</span>
-                        </label>
+                    <div class="color-options" id="colorOptions">
+                        <!-- Color options will be inserted here -->
                     </div>
                 </div>
 
-                <!-- Gallery View Settings -->
+                <!-- Storage Section -->
                 <div class="settings-section">
-                    <div class="settings-title">
-                        <i class="fas fa-th"></i> Gallery View
+                    <div class="settings-section-title">
+                        <i class="fas fa-database" style="margin-right: 8px;"></i>Storage
                     </div>
-                    <div class="settings-item">
-                        <span class="settings-label">Default View</span>
-                    </div>
-                    <div class="settings-item">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="radio" name="defaultView" value="grid" checked>
-                            <span>Grid</span>
-                        </label>
-                    </div>
-                    <div class="settings-item">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="radio" name="defaultView" value="list">
-                            <span>List</span>
-                        </label>
+                    <div id="storageInfo" style="padding: 12px; background: rgba(0, 0, 0, 0.2); border-radius: 6px; font-size: 13px;">
+                        <!-- Storage info will be inserted here -->
                     </div>
                 </div>
 
-                <!-- Database Actions -->
+                <!-- Cache Section -->
                 <div class="settings-section">
-                    <div class="settings-title">
-                        <i class="fas fa-database"></i> Data Management
+                    <div class="settings-section-title">
+                        <i class="fas fa-broom" style="margin-right: 8px;"></i>Cache
                     </div>
-                    <div class="settings-item">
-                        <button class="btn-secondary-custom" id="exportDataBtn" style="width: 100%; margin: 5px 0;">
-                            <i class="fas fa-download"></i> Export All Data
-                        </button>
-                    </div>
-                    <div class="settings-item">
-                        <button class="btn-secondary-custom" id="clearCacheBtn" style="width: 100%; margin: 5px 0;">
-                            <i class="fas fa-trash"></i> Clear Cache
-                        </button>
-                    </div>
-                    <div class="settings-item">
-                        <button class="btn-secondary-custom" id="installBtn" style="width: 100%; margin: 5px 0;">
-                            <i class="fas fa-download"></i> Install App
-                        </button>
-                    </div>
+                    <button class="btn-danger-custom" id="clearCacheBtn" style="width: 100%;">
+                        <i class="fas fa-trash"></i> Clear All Data
+                    </button>
                 </div>
-
-                <!-- About -->
-                <div class="settings-section">
-                    <div class="settings-title">
-                        <i class="fas fa-info-circle"></i> About
-                    </div>
-                    <div style="font-size: 13px; color: var(--text-secondary);">
-                        <p><strong>Horizon_Tech Gallery</strong></p>
-                        <p>Version 1.0.0</p>
-                        <p>Professional Gallery Web Application</p>
-                        <p>Read Our Story on <a href="https://medium.com/@its.akshatnetworkhub23/building-horizon-tech-gallery-a-modern-offline-first-gallery-web-app-using-html-css-javascript-890419c84a6d" target="_blank" referrer_policy="referrer"> Medium </a></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Confirmation Modal -->
-    <div class="modal-custom" id="confirmModal">
-        <div class="modal-content-custom" style="max-width: 400px;">
-            <div class="modal-header-custom">
-                <div class="modal-title-custom" id="confirmTitle"></div>
-                <button class="modal-close-btn" onclick="closeModal('confirmModal')">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-
-            <div id="confirmMessage" style="margin-bottom: 20px; color: var(--text-secondary);"></div>
-
-            <div style="display: flex; gap: 10px;">
-                <button class="btn-secondary-custom" onclick="closeModal('confirmModal')" style="flex: 1;">Cancel</button>
-                <button class="btn-danger-custom" id="confirmBtn" style="flex: 1;">Confirm</button>
             </div>
         </div>
     </div>
@@ -452,43 +389,7 @@
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
-    <!-- Hidden Inputs -->
-    <input type="file" id="hiddenFileInput" multiple accept="image/*" style="display: none;">
-
-    <!-- Main Application JavaScript -->
+    <!-- Scripts -->
     <script src="script.js"></script>
-    <script class="pwa-install-loader">
-        // Register service worker
-        document.addEventListener("DOMContentLoaded", () => {
-
-    const installBtn = document.getElementById("installBtn");
-
-    if (!installBtn) {
-        console.error("Install button not found");
-        return;
-    }
-
-    let deferredPrompt;
-
-    window.addEventListener("beforeinstallprompt", (e) => {
-
-        e.preventDefault();
-
-        deferredPrompt = e;
-
-        installBtn.style.display = "block";
-    });
-
-    installBtn.addEventListener("click", async () => {
-
-        if (!deferredPrompt) return;
-
-        deferredPrompt.prompt();
-
-        await deferredPrompt.userChoice;
-    });
-
-});
-    </script>
 </body>
 </html>
