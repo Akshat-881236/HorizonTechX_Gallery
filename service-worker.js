@@ -4,13 +4,13 @@ const CACHE_NAME =
 const FILES_TO_CACHE = [
 
      "./",
-    "./index.html",
-    "./style.css",
-    "./script.js",
-    "./manifest.json",
-    "./logo.svg",
-    "./iframe-blocker.js",
-    "./robots.txt",
+    "index.html",
+    "style.css",
+    "script.js",
+    "manifest.json",
+    "logo.svg",
+    "iframe-blocker.js",
+    "robots.txt",
 
     // External CSS
     "https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css",
