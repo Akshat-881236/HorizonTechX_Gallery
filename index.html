@@ -11,253 +11,21 @@
     <link rel="icon" href="logo.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="logo.svg" sizes="180x180">
     <link rel="shortcut icon" href="logo.svg" type="image/svg+xml">
-    <script class="service-worker-loader">
-function showUpdateDialog() {
-    return new Promise(resolve => {
-        const overlay = document.createElement("div");
-        overlay.innerHTML = `
-            <div class="ht-dialog-overlay">
-                <div class="ht-dialog">
-
-                    <div class="ht-dialog-icon">
-                        <i class="fas fa-sync-alt"></i>
-                    </div>
-
-                    <h3>
-                        Update Horizon Gallery
-                    </h3>
-
-                    <p>
-                        Clear cached resources and check for the latest version?
-                        <br>
-                        Your IndexedDB photos and folders will remain safe.
-                    </p>
-
-                    <div class="ht-dialog-actions">
-
-                        <button
-                            class="ht-btn ht-btn-cancel">
-                            Cancel
-                        </button>
-
-                        <button
-                            class="ht-btn ht-btn-update">
-                            Update Now
-                        </button>
-
-                    </div>
-
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(overlay);
-
-        overlay
-            .querySelector(".ht-btn-cancel")
-            .onclick = () => {
-
-                overlay.remove();
-
-                resolve(false);
-
-            };
-
-        overlay
-            .querySelector(".ht-btn-update")
-            .onclick = () => {
-
-                overlay.remove();
-
-                resolve(true);
-
-            };
-
-    });
-
-}
-
-function showUpdateSuccess() {
-    const toast = document.createElement("div");
-    toast.className = "ht-toast";
-    toast.innerHTML = `
-        <i class="fas fa-check-circle"></i>
-        Cache refreshed successfully.
-        Reloading...
-    `;
-    document.body.appendChild(toast);
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
-}
-
-    /* ==========================================
-   HORIZON GALLERY PWA UPDATE MANAGER
-========================================== */
-
-(async () => {
-
-    if (!("serviceWorker" in navigator)) {
-        return;
-    }
-
-    try {
-
-        const registration =
-            await navigator.serviceWorker.register(
-                "./service-worker.js"
-            );
-
-        console.log(
-            "✅ Service Worker Registered",
-            registration
-        );
-
-        /* ==========================
-           DAILY UPDATE CHECK
-        ========================== */
-
-        const UPDATE_KEY =
-            "HT_LAST_SW_UPDATE";
-
-        const today =
-            new Date()
-                .toISOString()
-                .split("T")[0];
-
-        const lastCheck =
-            localStorage.getItem(
-                UPDATE_KEY
-            );
-
-        if (lastCheck !== today) {
-
-            localStorage.setItem(
-                UPDATE_KEY,
-                today
-            );
-
-            await registration.update();
-
-            console.log(
-                "🔄 Daily Update Check Complete"
-            );
-
-        }
-
-/* ==========================
-           SHIFT + J
-           Manual Update
-        ========================== */
-
-        document.addEventListener(
-            "keydown",
-            async (e) => {
-
-                if (
-                    e.shiftKey &&
-                    e.key.toLowerCase() === "j"
-                ) {
-
-                    const proceed =
-                        await showUpdateDialog();
-
-                    if (!proceed) {
-                        return;
-                    }
-
-                    try {
-
-                        showUpdateSuccess(
-                            "Checking for updates..."
-                        );
-
-                        await registration.update();
-
-                        if (
-                            registration.waiting
-                        ) {
-
-                            registration.waiting.postMessage({
-                                type:
-                                    "SKIP_WAITING"
-                            });
-
-                        }
-
-                        setTimeout(() => {
-
-                            location.reload();
-
-                        }, 1500);
-
-                    } catch (err) {
-
-                        console.error(
-                            err
-                        );
-
-                    }
-
-                }
-
-            }
-        );
-
-        navigator.serviceWorker.addEventListener(
-            "controllerchange",
-            () => {
-
-                location.reload();
-
-            }
-        );
-
-    } catch (err) {
-
-        console.error(
-            "❌ Service Worker Error",
-            err
-        );
-
-    }
-
-})();
-</script>
-    <script class="pwa-install-loader">
-        // Register service worker
-        document.addEventListener("DOMContentLoaded", () => {
-
-    const installBtn = document.getElementById("installBtn");
-
-    if (!installBtn) {
-        console.error("Install button not found");
-        return;
-    }
-
-    let deferredPrompt;
-
-    window.addEventListener("beforeinstallprompt", (e) => {
-
-        e.preventDefault();
-
-        deferredPrompt = e;
-
-        installBtn.style.display = "block";
-    });
-
-    installBtn.addEventListener("click", async () => {
-
-        if (!deferredPrompt) return;
-
-        deferredPrompt.prompt();
-
-        await deferredPrompt.userChoice;
-    });
-
-});
-    </script>
     <link rel="manifest" href="manifest.json">
+    <script class="service-worker-loader">
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker
+                    .register("service-worker.js")
+                    .then(reg => {
+                        console.log("Service Worker Registered", reg);
+                    })
+                    .catch(err => {
+                        console.error("Service Worker Error:", err);
+                    });
+            });
+        }
+    </script>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Horizon Gallery">
@@ -689,5 +457,38 @@ function showUpdateSuccess() {
 
     <!-- Main Application JavaScript -->
     <script src="script.js"></script>
+    <script class="pwa-install-loader">
+        // Register service worker
+        document.addEventListener("DOMContentLoaded", () => {
+
+    const installBtn = document.getElementById("installBtn");
+
+    if (!installBtn) {
+        console.error("Install button not found");
+        return;
+    }
+
+    let deferredPrompt;
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+
+        e.preventDefault();
+
+        deferredPrompt = e;
+
+        installBtn.style.display = "block";
+    });
+
+    installBtn.addEventListener("click", async () => {
+
+        if (!deferredPrompt) return;
+
+        deferredPrompt.prompt();
+
+        await deferredPrompt.userChoice;
+    });
+
+});
+    </script>
 </body>
 </html>
