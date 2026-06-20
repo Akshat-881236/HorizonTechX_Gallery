@@ -89,7 +89,6 @@
 <meta name="twitter:title" content="Horizon_Tech Gallery">
 <meta name="twitter:description" content="Professional Gallery Web App">
 <meta name="twitter:image" content="https://akshat-881236.github.io/HorizonTechX_Gallery/logo.svg">
-<meta http-equiv="Content-Security-Policy" content="frame-ancestors 'self';">
    <link rel="me" href="https://www.linkedin.com/in/akshat-prasad-anh">
    <link rel="me" href="https://medium.com/@its.akshatnetworkhub23">
    <link rel="me" href="https://www.instagram.com/its_akshat_881236/">
@@ -445,66 +444,6 @@
     <!-- Main Application JavaScript -->
     <script src="script.js"></script>
 <script class="service-worker-loader">
-
-if ("serviceWorker" in navigator) {
-
-    window.addEventListener("load", async () => {
-
-        try {
-
-            const registration =
-                await navigator.serviceWorker.register(
-                    "service-worker.js"
-                );
-
-            console.log(
-                "Service Worker Registered",
-                registration
-            );
-
-            // Daily Update Check
-
-            const UPDATE_KEY =
-                "HT_LAST_SW_UPDATE";
-
-            const today =
-                new Date()
-                    .toISOString()
-                    .split("T")[0];
-
-            const lastCheck =
-                localStorage.getItem(
-                    UPDATE_KEY
-                );
-
-            if (lastCheck !== today) {
-
-                localStorage.setItem(
-                    UPDATE_KEY,
-                    today
-                );
-
-                registration.update();
-
-                console.log(
-                    "Daily Service Worker Update Check"
-                );
-
-            }
-
-        } catch (err) {
-
-            console.error(
-                "Service Worker Error:",
-                err
-            );
-
-        }
-
-    });
-
-}
-
 function showUpdateDialog() {
     return new Promise(resolve => {
         const overlay = document.createElement("div");
@@ -584,72 +523,138 @@ function showUpdateSuccess() {
     }, 3000);
 }
 
-/* ==========================================
-   SHIFT + J
-   Force Cache Refresh
-   IndexedDB Safe
+    /* ==========================================
+   HORIZON GALLERY PWA UPDATE MANAGER
 ========================================== */
 
-document.addEventListener(
-    "keydown",
-    async (e) => {
+(async () => {
 
-        if (
-            e.shiftKey &&
-            e.key.toLowerCase() === "j"
-        ) {
+    if (!("serviceWorker" in navigator)) {
+        return;
+    }
 
-            // Custom Confirmation Dialog
-            const proceed =
-                await showUpdateDialog();
+    try {
 
-            if (!proceed) {
-                return;
-            }
+        const registration =
+            await navigator.serviceWorker.register(
+                "./service-worker.js"
+            );
 
-            try {
+        console.log(
+            "✅ Service Worker Registered",
+            registration
+        );
 
-                const cacheNames =
-                    await caches.keys();
+        /* ==========================
+           DAILY UPDATE CHECK
+        ========================== */
 
-                await Promise.all(
+        const UPDATE_KEY =
+            "HT_LAST_SW_UPDATE";
 
-                    cacheNames.map(name =>
-                        caches.delete(name)
-                    )
+        const today =
+            new Date()
+                .toISOString()
+                .split("T")[0];
 
-                );
+        const lastCheck =
+            localStorage.getItem(
+                UPDATE_KEY
+            );
 
-                const registration =
-                    await navigator
-                        .serviceWorker
-                        .getRegistration();
+        if (lastCheck !== today) {
 
-                if (registration) {
+            localStorage.setItem(
+                UPDATE_KEY,
+                today
+            );
 
-                    await registration.update();
+            await registration.update();
 
-                }
-
-                // Custom Success Toast
-                showUpdateSuccess();
-
-                setTimeout(() => {
-
-                    location.reload();
-
-                }, 1500);
-
-            } catch (err) {
-
-                console.error(err);
-
-            }
+            console.log(
+                "🔄 Daily Update Check Complete"
+            );
 
         }
 
+/* ==========================
+           SHIFT + J
+           Manual Update
+        ========================== */
+
+        document.addEventListener(
+            "keydown",
+            async (e) => {
+
+                if (
+                    e.shiftKey &&
+                    e.key.toLowerCase() === "j"
+                ) {
+
+                    const proceed =
+                        await showUpdateDialog();
+
+                    if (!proceed) {
+                        return;
+                    }
+
+                    try {
+
+                        showUpdateSuccess(
+                            "Checking for updates..."
+                        );
+
+                        await registration.update();
+
+                        if (
+                            registration.waiting
+                        ) {
+
+                            registration.waiting.postMessage({
+                                type:
+                                    "SKIP_WAITING"
+                            });
+
+                        }
+
+                        setTimeout(() => {
+
+                            location.reload();
+
+                        }, 1500);
+
+                    } catch (err) {
+
+                        console.error(
+                            err
+                        );
+
+                    }
+
+                }
+
+            }
+        );
+
+        navigator.serviceWorker.addEventListener(
+            "controllerchange",
+            () => {
+
+                location.reload();
+
+            }
+        );
+
+    } catch (err) {
+
+        console.error(
+            "❌ Service Worker Error",
+            err
+        );
+
     }
-);
+
+})();
 </script>
     <script class="pwa-install-loader">
         // Register service worker
