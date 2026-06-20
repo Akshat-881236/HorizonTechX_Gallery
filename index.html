@@ -20,20 +20,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script class="service-worker-loader">
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", () => {
-                navigator.serviceWorker
-                    .register("service-worker.js")
-                    .then(reg => {
-                        console.log("Service Worker Registered", reg);
-                    })
-                    .catch(err => {
-                        console.error("Service Worker Error:", err);
-                    });
-            });
-        }
-    </script>
+    <style id="htx-security-blocker">
+    body { display: none !important; }
+    </style>
    <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -445,6 +434,213 @@
 
     <!-- Main Application JavaScript -->
     <script src="script.js"></script>
+<script class="service-worker-loader">
+
+if ("serviceWorker" in navigator) {
+
+    window.addEventListener("load", async () => {
+
+        try {
+
+            const registration =
+                await navigator.serviceWorker.register(
+                    "service-worker.js"
+                );
+
+            console.log(
+                "Service Worker Registered",
+                registration
+            );
+
+            // Daily Update Check
+
+            const UPDATE_KEY =
+                "HT_LAST_SW_UPDATE";
+
+            const today =
+                new Date()
+                    .toISOString()
+                    .split("T")[0];
+
+            const lastCheck =
+                localStorage.getItem(
+                    UPDATE_KEY
+                );
+
+            if (lastCheck !== today) {
+
+                localStorage.setItem(
+                    UPDATE_KEY,
+                    today
+                );
+
+                registration.update();
+
+                console.log(
+                    "Daily Service Worker Update Check"
+                );
+
+            }
+
+        } catch (err) {
+
+            console.error(
+                "Service Worker Error:",
+                err
+            );
+
+        }
+
+    });
+
+}
+
+function showUpdateDialog() {
+    return new Promise(resolve => {
+        const overlay = document.createElement("div");
+        overlay.innerHTML = `
+            <div class="ht-dialog-overlay">
+                <div class="ht-dialog">
+
+                    <div class="ht-dialog-icon">
+                        <i class="fas fa-sync-alt"></i>
+                    </div>
+
+                    <h3>
+                        Update Horizon Gallery
+                    </h3>
+
+                    <p>
+                        Clear cached resources and check for the latest version?
+                        <br>
+                        Your IndexedDB photos and folders will remain safe.
+                    </p>
+
+                    <div class="ht-dialog-actions">
+
+                        <button
+                            class="ht-btn ht-btn-cancel">
+                            Cancel
+                        </button>
+
+                        <button
+                            class="ht-btn ht-btn-update">
+                            Update Now
+                        </button>
+
+                    </div>
+
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        overlay
+            .querySelector(".ht-btn-cancel")
+            .onclick = () => {
+
+                overlay.remove();
+
+                resolve(false);
+
+            };
+
+        overlay
+            .querySelector(".ht-btn-update")
+            .onclick = () => {
+
+                overlay.remove();
+
+                resolve(true);
+
+            };
+
+    });
+
+}
+
+function showUpdateSuccess() {
+    const toast = document.createElement("div");
+    toast.className = "ht-toast";
+    toast.innerHTML = `
+        <i class="fas fa-check-circle"></i>
+        Cache refreshed successfully.
+        Reloading...
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+/* ==========================================
+   SHIFT + J
+   Force Cache Refresh
+   IndexedDB Safe
+========================================== */
+
+document.addEventListener(
+    "keydown",
+    async (e) => {
+
+        if (
+            e.shiftKey &&
+            e.key.toLowerCase() === "j"
+        ) {
+
+            // Custom Confirmation Dialog
+            const proceed =
+                await showUpdateDialog();
+
+            if (!proceed) {
+                return;
+            }
+
+            try {
+
+                const cacheNames =
+                    await caches.keys();
+
+                await Promise.all(
+
+                    cacheNames.map(name =>
+                        caches.delete(name)
+                    )
+
+                );
+
+                const registration =
+                    await navigator
+                        .serviceWorker
+                        .getRegistration();
+
+                if (registration) {
+
+                    await registration.update();
+
+                }
+
+                // Custom Success Toast
+                showUpdateSuccess();
+
+                setTimeout(() => {
+
+                    location.reload();
+
+                }, 1500);
+
+            } catch (err) {
+
+                console.error(err);
+
+            }
+
+        }
+
+    }
+);
+</script>
     <script class="pwa-install-loader">
         // Register service worker
         document.addEventListener("DOMContentLoaded", () => {
